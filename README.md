@@ -313,5 +313,4 @@ Finalmente, se realizaron pruebas de pausa y reanudación con varias serpientes 
 =======
 **Nota** Debido a la complejidad de algunas partes del código, el análisis y seguimiento del performance de los threads fue apoyado por Claude para así tener un mejor entendimiento de cómo se pueden manejar los hilos con dicha cantidad de componentes y parámetros. 
  
->>>>>>> 03037cbba4141e198a624684355e40895c2866a7
 ---
