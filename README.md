@@ -298,5 +298,6 @@ También se verificó el funcionamiento de los elementos de turbo y teleports. L
 
 Finalmente, se realizaron pruebas de pausa y reanudación con varias serpientes para comprobar que la coordinación de los hilos no produjera bloqueos o estados inconsistentes.
 
-**Nota**: Debido a la complejidad de algunas partes del código, el análisis y seguimiento del performance de los threads fue apoyado por Claude para así tener un mejor entendimiento de cómo se pueden manejar los hilos con dicha cantidad de componentes y parámetros. 
+**Nota** Debido a la complejidad de algunas partes del código, el análisis y seguimiento del performance de los threads fue apoyado por Claude para así tener un mejor entendimiento de cómo se pueden manejar los hilos con dicha cantidad de componentes y parámetros. 
+ 
 ---
