@@ -179,7 +179,7 @@ Este laboratorio es una adaptación modernizada del ejercicio **SnakeRace** de A
 ```
 co.eci.snake
 ├─ app/                 # Bootstrap de la aplicación (Main)
-└─ part1_primefinder/   # Solución al ejercicio wait and      notify 
+└─ part1_primefinder/   # Solución al ejercicio wait and notify 
 ├─ core/                # Dominio: Board, Snake, Direction, Position
 ├─ core/engine/         # GameClock (ticks, Pausa/Reanudar)
 ├─ concurrency/         # SnakeRunner (lógica por serpiente con virtual threads)
