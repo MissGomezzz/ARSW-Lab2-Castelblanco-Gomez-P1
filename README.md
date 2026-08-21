@@ -195,7 +195,7 @@ Aunque estas acciones podían estar implementadas en la clase de `Control` direc
 
 Después, en el `PrimeFinder` se utilizaron los métodos puntuales de las clases previamente mencionadas, para evitar el llamado de un objeto completo y más bien utilizar las funciones como `checkpoint()` e `increment()` y proteger mejor los demás parámetros que no deben ser modificados. 
 
-En adición, Claude recomendó el uso de la excepción `InterruptedException`, el cual es usado para no perder el registro que se tiene de la variable pause. 
+En adición, Claude recomendó el uso de la excepción `InterruptedException`, el cual es atrapado en run() y se restaura el estado de interrupción con `Thread.currentThread().interrupt()`, ya que `wait()` limpia ese banderín al lanzar la excepción; restaurarlo preserva la señal para el resto del programa.
 
 Además, `Control` dejó de extender Thread, ya que en la versión original esto generaba un hilo adicional sin propósito real (solo para lanzar a los otros 3). Ahora es una clase normal, con un método `startAll()` que el Main invoca directamente, reduciendo la cantidad de hilos y simplificando el diseño concurrente. Acá se usa un método llamado `startAll()`, el cual es finalmente usado por el Main, el cual ahora decide cuando pausar, imprimir el conteo, esperar el ENTER y reanudar el conteo. 
 

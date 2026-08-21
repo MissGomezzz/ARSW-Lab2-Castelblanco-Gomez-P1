@@ -6,7 +6,7 @@ package co.eci.snake.app.part1_primefinder;
 public class Control extends Thread {
     
     private final static int NTHREADS = 3;
-    private final static int MAXVALUE = 300_000_000;
+    private final static int MAXVALUE = 30_000_000;
     private final int NDATA = MAXVALUE / NTHREADS;
 
     private final PrimeFinderThread[] pft = new PrimeFinderThread[NTHREADS]; 
