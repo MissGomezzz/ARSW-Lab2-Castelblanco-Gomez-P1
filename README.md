@@ -282,6 +282,8 @@ Finalmente, al pausar el juego se calculan las estadísticas de las serpientes y
 
 De esta manera, la pausa no depende únicamente de cambiar el estado de la interfaz, sino que también coordina los hilos que ejecutan las serpientes para garantizar que el estado mostrado sea consistente y no presente *tearing*.
 
+**Nota**: Debido a que no se presenta o se exige una condición de muerte para las serpientes, se decidió optar por serpientes que no mueren. 
+
 ### 4) Robustez bajo carga
 
 > - Ejecuta con **N alto** (`-Dsnakes=20` o más) y/o aumenta la velocidad.
@@ -299,4 +301,12 @@ También se verificó el funcionamiento de los elementos de turbo y teleports. L
 Finalmente, se realizaron pruebas de pausa y reanudación con varias serpientes para comprobar que la coordinación de los hilos no produjera bloqueos o estados inconsistentes.
 
 **Nota**: Debido a la complejidad de algunas partes del código, el análisis y seguimiento del performance de los threads fue apoyado por Claude para así tener un mejor entendimiento de cómo se pueden manejar los hilos con dicha cantidad de componentes y parámetros. 
+
+
+**Resultados ejemplo**
+
+![Resultados](/src/img/part_2/resultados_1.png)
+
+![Estadísticas resultados](/src/img/part_2/stats.png)
+
 ---
