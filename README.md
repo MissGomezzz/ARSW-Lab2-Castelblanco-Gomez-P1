@@ -228,4 +228,75 @@ A continuación se muestran algunos códigos que evidencian la lógica explicada
 
 ## Parte II — SnakeRace concurrente (núcleo del laboratorio)
 
->
+
+### 1) Análisis de concurrencia
+
+> - Explica **cómo** el código usa hilos para dar autonomía a cada serpiente.
+> - **Identifica** y documenta en **`el reporte de laboratorio`**:
+>   - Posibles **condiciones de carrera**.
+>   - **Colecciones** o estructuras **no seguras** en contexto concurrente.
+>   - Ocurrencias de **espera activa** (busy-wait) o de sincronización innecesaria.
+
+Cada `Snake` tiene asociado un `SnakeRunner`, el cual corre en su propio hilo (virtual thread) e implementa un loop infinito (`while (!Thread.currentThread().isInterrupted())`). Ahí decide cuándo girar, llama a `board.step(snake)` para avanzar, y usa `Thread.sleep(sleep)` para marcar su propio ritmo. De esta forma, cada serpiente avanza de manera autónoma, sin depender de que otra le ceda el turno.
+
+**Condición de carrera identificada**: `Snake.body` es un `ArrayDeque<Position>` mutado por `advance()` (invocado desde `Board.step()`, sincronizado sobre el monitor de `Board`, no de `Snake`). El método `snapshot()` de `Snake`, usado presumiblemente por la UI para dibujar, no comparte ningún lock con `advance()`. Si el hilo de la UI llama `snapshot()` mientras el `SnakeRunner` está en medio de un `addFirst`/`removeLast`, hay acceso concurrente no sincronizado sobre la misma colección.
+
+**Colección insegura en contexto concurrente**: esa misma `ArrayDeque body`, al no ser thread-safe y usarse desde dos hilos (el runner y la UI) sin protección compartida.
+
+En contraste, los `HashSet`/`HashMap` de `Board` (`mice`, `obstacles`, `turbo`, `teleports`) sí están bien protegidos: tanto sus mutaciones como sus lecturas están `synchronized` sobre el mismo monitor de `Board`.
+
+**Sincronización posiblemente innecesaria**: `Board.step(Snake)` es un único método `synchronized` sobre todo `Board`, así que con N serpientes todas compiten por el mismo lock en cada tick, aunque solo una parte del estado compartido se toca en cada llamada — una región crítica más ancha de lo necesario.
+
+**Espera activa**: no hay un busy-wait explícito (`while` vacío consultando una bandera), pero sí hay un problema equivalente: `GameClock.pause()` solo cambia su propio `AtomicReference<GameState>`, que únicamente consulta el propio `GameClock` antes de disparar el `tick`. `SnakeRunner` nunca revisa ese estado — sigue su loop y su `Thread.sleep()` sin enterarse de la pausa. Es decir, pausar el `GameClock` no pausa realmente a las serpientes.
+
+
+### 2) Correcciones mínimas y regiones críticas
+
+>- **Elimina** esperas activas reemplazándolas por **señales** / **estados** o mecanismos de la librería de concurrencia.
+> - Protege **solo** las **regiones críticas estrictamente necesarias** (evita bloqueos amplios).
+> - Justifica en **`el reporte de laboratorio`** cada cambio: cuál era el riesgo y cómo lo resuelves.
+
+**Espera activa / sincronización ausente resuelta**: se creó `PauseController`, un monitor con el mismo patrón usado en la Parte I (`synchronized` + `while(paused) wait()` + `notifyAll()`). `GameClock.pause()`/`resume()` ahora también controlan este monitor, y cada `SnakeRunner` llama `pauseController.awaitIfPaused()` al inicio de cada vuelta de su loop. Con esto, pausar el `GameClock` sí detiene realmente a las serpientes (antes solo dejaba de repintar la UI, pero los `SnakeRunner` seguían calculando y moviéndose sin enterarse).
+
+**Data race resuelta en `Snake`**: se marcaron `head()`, `snapshot()` y `advance()` como `synchronized`. El riesgo era que `advance()` y `snapshot()` accedían a la misma `ArrayDeque<Position> body` sin compartir ningún lock. `direction` se dejó como estaba (`volatile`), ya que es una única referencia leída/escrita atómicamente, sin operación que se debe proteger.
+
+**Región crítica en `Board.step()` — se dejó sin cambios**: aunque es un método `synchronized` completo, se justifica dejarlo así porque casi toda su lógica toca estado compartido (`mice`, `obstacles`, `turbo`, `teleports`); si se reduce alguna parte, se sabotea la lógica detrás. Reducir su alcance implicaría sincronizar por partes un método que de todas formas necesita ver el tablero en un estado consistente durante un movimiento.
+
+**Conexión final**: `SnakeApp` crea una instancia de `PauseController` y la reparte por referencia tanto al `GameClock` como a cada `SnakeRunner`, siguiendo el mismo principio de "composition root" que usamos en la Parte I.
+
+### 3) Control de ejecución seguro (UI)
+
+> - Implementa la **UI** con **Iniciar / Pausar / Reanudar** (ya existe el botón _Action_ y el reloj `GameClock`).
+> - Al **Pausar**, muestra de forma **consistente** (sin _tearing_):
+>   - La **serpiente viva más larga**.
+>   - La **peor serpiente** (la que **primero murió**).
+> - Considera que la suspensión **no es instantánea**; coordina para que el estado mostrado no quede “a medias”.
+
+Para este punto se implementó el control de ejecución desde la interfaz utilizando el botón `Action`, que permite pausar y reanudar la ejecución del juego.
+
+Para evitar que la información mostrada al pausar quede a mitad de una actualización, se modificó `PauseController` para llevar el control de los hilos que se encuentran ejecutando un movimiento. De esta forma, cuando se solicita la pausa, el programa espera a que los movimientos que ya estaban en ejecución terminen antes de mostrar las estadísticas.
+
+En `SnakeRunner` se agregó el uso de `PauseController`, haciendo que cada hilo espere cuando el juego está pausado y notifique cuando termina su operación actual.
+
+Finalmente, al pausar el juego se calculan las estadísticas de las serpientes y se muestran en la interfaz, incluyendo la serpiente viva más larga y la primera serpiente en morir.
+
+De esta manera, la pausa no depende únicamente de cambiar el estado de la interfaz, sino que también coordina los hilos que ejecutan las serpientes para garantizar que el estado mostrado sea consistente y no presente *tearing*.
+
+### 4) Robustez bajo carga
+
+> - Ejecuta con **N alto** (`-Dsnakes=20` o más) y/o aumenta la velocidad.
+> - El juego **no debe romperse**: sin `ConcurrentModificationException`, sin lecturas inconsistentes, sin _deadlocks_.
+> - Si habilitas **teleports** y **turbo**, verifica que las reglas no introduzcan carreras.
+
+Para comprobar el comportamiento concurrente del juego se ejecutó con un número alto de serpientes utilizando `-Dsnakes=20`.
+
+Durante las pruebas se verificó que el juego pudiera ejecutarse sin presentar `ConcurrentModificationException`, lecturas inconsistentes o bloqueos entre los hilos.
+
+El acceso al `Board` se encuentra sincronizado mediante los métodos `synchronized`, mientras que las colecciones utilizadas por la interfaz se entregan mediante copias para evitar que la UI acceda directamente a estructuras que están siendo modificadas por los hilos de las serpientes.
+
+También se verificó el funcionamiento de los elementos de turbo y teleports. Las operaciones que modifican el estado compartido del tablero se realizan dentro de `Board.step()`, evitando que varias serpientes modifiquen simultáneamente los mismos recursos.
+
+Finalmente, se realizaron pruebas de pausa y reanudación con varias serpientes para comprobar que la coordinación de los hilos no produjera bloqueos o estados inconsistentes.
+
+**Nota**: Debido a la complejidad de algunas partes del código, el análisis y seguimiento del performance de los threads fue apoyado por Claude para así tener un mejor entendimiento de cómo se pueden manejar los hilos con dicha cantidad de componentes y parámetros. 
+---

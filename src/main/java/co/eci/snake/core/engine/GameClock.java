@@ -1,23 +1,25 @@
 package co.eci.snake.core.engine;
 
-import co.eci.snake.core.GameState;
-
 import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import co.eci.snake.core.GameState;
+
 public final class GameClock implements AutoCloseable {
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
   private final long periodMillis;
   private final Runnable tick;
-  private final java.util.concurrent.atomic.AtomicReference<GameState> state = new AtomicReference<>(GameState.STOPPED);
+  private final AtomicReference<GameState> state = new AtomicReference<>(GameState.STOPPED);
+  private final PauseController pauseController;
 
-  public GameClock(long periodMillis, Runnable tick) {
+  public GameClock(long periodMillis, Runnable tick, PauseController pauseController) {
     if (periodMillis <= 0) throw new IllegalArgumentException("periodMillis must be > 0");
     this.periodMillis = periodMillis;
-    this.tick = java.util.Objects.requireNonNull(tick, "tick");
+    this.tick = Objects.requireNonNull(tick, "tick");
+    this.pauseController = Objects.requireNonNull(pauseController, "pauseController");
   }
 
   public void start() {
@@ -28,8 +30,24 @@ public final class GameClock implements AutoCloseable {
     }
   }
 
-  public void pause()  { state.set(GameState.PAUSED); }
-  public void resume() { state.set(GameState.RUNNING); }
-  public void stop()   { state.set(GameState.STOPPED); }
+  public void pause()  {
+    state.set(GameState.PAUSED);
+    pauseController.pause();
+  }
+
+  public void resume() {
+    state.set(GameState.RUNNING);
+    pauseController.resume();
+  }
+
+  public void stop()   {
+    state.set(GameState.STOPPED);
+    pauseController.resume(); // frees the blocked snakes
+  }
+
+  public GameState state() {
+    return state.get(); 
+  }
+
   @Override public void close() { scheduler.shutdownNow(); }
 }
